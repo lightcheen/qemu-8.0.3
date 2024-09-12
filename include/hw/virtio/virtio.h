@@ -329,6 +329,7 @@ typedef struct virtio_serial_conf virtio_serial_conf;
 typedef struct virtio_input_conf virtio_input_conf;
 typedef struct VirtIOSCSIConf VirtIOSCSIConf;
 typedef struct VirtIORNGConf VirtIORNGConf;
+typedef struct VirtIOTPMConf VirtIOTPMConf;
 
 #define DEFINE_VIRTIO_COMMON_FEATURES(_state, _field) \
     DEFINE_PROP_BIT64("indirect_desc", _state, _field,    \

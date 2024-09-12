@@ -22,6 +22,8 @@
 #include "hw/qdev-properties.h"
 #include "hw/pci/pci_ids.h"
 #include "hw/acpi/tpm.h"
+#include "hw/virtio/virtio-tpm.h"
+#include "hw/virtio/virtio-pci.h"
 #include "migration/vmstate.h"
 #include "sysemu/tpm_backend.h"
 #include "sysemu/tpm_util.h"
@@ -31,6 +33,15 @@
 #include "tpm_ppi.h"
 #include "trace.h"
 #include "qom/object.h"
+
+#define TYPE_VIRTIO_TPM_PCI "virtio-tpm-pci-base"
+
+typedef struct VirtIOTpmPCI VirtIOTpmPCI;
+
+struct VirtIOTpmPCI {
+    VirtIOPCIProxy parent_obj;
+    VirtIOTPM vdev;
+};
 
 struct CRBState {
     DeviceState parent_obj;
@@ -43,6 +54,8 @@ struct CRBState {
 
     size_t be_buffer_size;
 
+    VirtIOTpmPCI *virtpm;
+    
     bool ppi_enabled;
     TPMPPI ppi;
 };
@@ -138,7 +151,7 @@ static void tpm_crb_mmio_write(void *opaque, hwaddr addr,
             tpm_backend_cancel_cmd(s->tpmbe);
         }
         break;
-    case A_CRB_CTRL_START:
+    case A_CRB_CTRL_START: // 将这一部分挖掉
         if (val == CRB_START_INVOKE &&
             !(s->regs[R_CRB_CTRL_START] & CRB_START_INVOKE) &&
             tpm_crb_get_active_locty(s) == locty) {
@@ -189,7 +202,7 @@ static const MemoryRegionOps tpm_crb_memory_ops = {
     },
 };
 
-static void tpm_crb_request_completed(TPMIf *ti, int ret)
+static void tpm_crb_request_completed(TPMIf* ti, int ret)
 {
     CRBState *s = CRB(ti);
 
@@ -229,6 +242,8 @@ static const VMStateDescription vmstate_tpm_crb = {
 static Property tpm_crb_properties[] = {
     DEFINE_PROP_TPMBE("tpmdev", CRBState, tpmbe),
     DEFINE_PROP_BOOL("ppi", CRBState, ppi_enabled, true),
+    DEFINE_PROP_LINK("virtiodev", CRBState, virtpm, TYPE_VIRTIO_TPM_PCI, VirtIOTpmPCI *),
+
     DEFINE_PROP_END_OF_LIST(),
 };
 
@@ -281,9 +296,10 @@ static void tpm_crb_reset(void *dev)
     }
 }
 
-static void tpm_crb_realize(DeviceState *dev, Error **errp)
+static void tpm_crb_realize(DeviceState* dev, Error** errp)
 {
-    CRBState *s = CRB(dev);
+    CRBState* s = CRB(dev);
+    VirtIODevice * vdev;
 
     if (!tpm_find()) {
         error_setg(errp, "at most one TPM device is permitted");
@@ -296,13 +312,27 @@ static void tpm_crb_realize(DeviceState *dev, Error **errp)
 
     memory_region_init_io(&s->mmio, OBJECT(s), &tpm_crb_memory_ops, s,
         "tpm-crb-mmio", sizeof(s->regs));
-    memory_region_init_ram(&s->cmdmem, OBJECT(s),
-        "tpm-crb-cmd", CRB_CTRL_CMD_SIZE, errp);
-
     memory_region_add_subregion(get_system_memory(),
         TPM_CRB_ADDR_BASE, &s->mmio);
-    memory_region_add_subregion(get_system_memory(),
-        TPM_CRB_ADDR_BASE + sizeof(s->regs), &s->cmdmem);
+
+    if (s->virtpm) {
+        vdev = VIRTIO_DEVICE(s->virtpm);
+
+        // TODO: 下面的东西全都放在 virtio-tpm 的实现中。（一个 queue 的实现中）
+        // TODO: VIRTIO TPM 创建！驱动侧：在 CRB 识别中增加 Virtio 相关数据结构的初始化即可！
+        // 寻找对应的结构体，而不是直接进行引用。！
+
+        virtio_init(vdev, VIRTIO_ID_TPM, 0); // 需要再来一个 virtio-tpm-pci 设备。
+        // 驱动侧：需要通过 CRB 找到 Virtio 设备对应的 vqueue。直接将 CMD 按照格式写入到 vqueue 中。
+    }
+    else {
+        // A_CRB_CTRL_START 变成 virtio notify，即，驱动/设备侧实现同时去掉。并将原来的 cmdmem 改为零拷贝。
+        // virtio-mmio 的 write/read 表明它更适合寄存器粒度的虚拟化。对于类网络包级别的虚拟化，建议使用 virtio-pci 抽象。
+        memory_region_init_ram(&s->cmdmem, OBJECT(s),
+            "tpm-crb-cmd", CRB_CTRL_CMD_SIZE, errp);
+        memory_region_add_subregion(get_system_memory(),
+            TPM_CRB_ADDR_BASE + sizeof(s->regs), &s->cmdmem);
+    }
 
     if (s->ppi_enabled) {
         tpm_ppi_init(&s->ppi, get_system_memory(),
@@ -327,7 +357,9 @@ static void tpm_crb_class_init(ObjectClass *klass, void *data)
     dc->user_creatable = true;
     tc->model = TPM_MODEL_TPM_CRB;
     tc->get_version = tpm_crb_get_version;
-    tc->request_completed = tpm_crb_request_completed;
+    tc->request_completed = tpm_crb_request_completed; // tpm_backend_deliver_request 中调用，确认完成。
+    // tpm_backend_deliver_request = tpm_backend_worker_thread + tpm_backend_request_completed 负责发送命令并完成。
+    // 不妨我们在 handle 函数中直接处理完成。
 
     set_bit(DEVICE_CATEGORY_MISC, dc->categories);
 }
