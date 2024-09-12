@@ -26,7 +26,7 @@ Loading PEIM 222C386D-5ABC-4FB4-B124-FBB82488ACF4
 Loading PEIM at 0x00000834FC0 EntryPoint=0x0000083D68A PlatformPei.efi
 Platform PEIM Loaded
 CMOS:
-00: 57 00 11 00 08 00 05 12 09 24 26 02 00 80 00 00
+00: 42 00 19 00 09 00 05 12 09 24 26 02 00 80 00 00
 10: 50 00 00 00 07 80 02 FF FF 00 00 00 00 00 00 00
 20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 30: FF FF 20 00 00 07 00 20 30 00 00 00 00 12 00 00
@@ -2255,4 +2255,5 @@ UEFI v2.70 (EDK II, 0x00010000)
 [1m[33m[40mMapping table[0m[37m[40m
 [1m[33m[40m     BLK0:[0m[37m[40m [1m[37m[40mAlias(s):[0m[37m[40m
           PciRoot(0x0)/Pci(0x1,0x1)/Ata(0x0)
-[07;01HPress [1m[37m[40mESC[0m[37m[40m in 5 seconds to skip [1m[33m[40mstartup.nsh[0m[37m[40m or any other key to continue.[07;01HPress [1m[37m[40mESC[0m[37m[40m in 4 seconds to skip [1m[33m[40mstartup.nsh[0m[37m[40m or any other key to continue.
+[07;01HPress [1m[37m[40mESC[0m[37m[40m in 5 seconds to skip [1m[33m[40mstartup.nsh[0m[37m[40m or any other key to continue.[07;01HPress [1m[37m[40mESC[0m[37m[40m in 4 seconds to skip [1m[33m[40mstartup.nsh[0m[37m[40m or any other key to continue.[07;01HPress [1m[37m[40mESC[0m[37m[40m in 3 seconds to skip [1m[33m[40mstartup.nsh[0m[37m[40m or any other key to continue.[07;01HPress [1m[37m[40mESC[0m[37m[40m in 2 seconds to skip [1m[33m[40mstartup.nsh[0m[37m[40m or any other key to continue.[07;01HPress [1m[37m[40mESC[0m[37m[40m in 1 seconds to skip [1m[33m[40mstartup.nsh[0m[37m[40m or any other key to continue.
+[08;01H[1m[33m[40mShell> [0m[37m[40m

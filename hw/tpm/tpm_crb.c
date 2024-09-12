@@ -34,9 +34,12 @@
 #include "trace.h"
 #include "qom/object.h"
 
+typedef struct VirtIOTpmPCI VirtIOTpmPCI;
+
 #define TYPE_VIRTIO_TPM_PCI "virtio-tpm-pci-base"
 
-typedef struct VirtIOTpmPCI VirtIOTpmPCI;
+DECLARE_INSTANCE_CHECKER(VirtIOTpmPCI, VIRTIO_TPM_PCI,
+    TYPE_VIRTIO_TPM_PCI)
 
 struct VirtIOTpmPCI {
     VirtIOPCIProxy parent_obj;
@@ -54,7 +57,9 @@ struct CRBState {
 
     size_t be_buffer_size;
 
-    VirtIOTpmPCI *virtpm;
+    bool virtio_enabled;
+    VirtIOTpmPCI* virtpmpci;
+    VirtIOTPM* virtpm;
     
     bool ppi_enabled;
     TPMPPI ppi;
@@ -242,7 +247,8 @@ static const VMStateDescription vmstate_tpm_crb = {
 static Property tpm_crb_properties[] = {
     DEFINE_PROP_TPMBE("tpmdev", CRBState, tpmbe),
     DEFINE_PROP_BOOL("ppi", CRBState, ppi_enabled, true),
-    DEFINE_PROP_LINK("virtiodev", CRBState, virtpm, TYPE_VIRTIO_TPM_PCI, VirtIOTpmPCI *),
+    // DEFINE_PROP_BOOL("virtio", CRBState, virtio_enabled, true),
+    DEFINE_PROP_LINK("virtdev", CRBState, virtpmpci, TYPE_VIRTIO_TPM_PCI, VirtIOTpmPCI*),
 
     DEFINE_PROP_END_OF_LIST(),
 };
@@ -299,7 +305,6 @@ static void tpm_crb_reset(void *dev)
 static void tpm_crb_realize(DeviceState* dev, Error** errp)
 {
     CRBState* s = CRB(dev);
-    VirtIODevice * vdev;
 
     if (!tpm_find()) {
         error_setg(errp, "at most one TPM device is permitted");
@@ -316,13 +321,9 @@ static void tpm_crb_realize(DeviceState* dev, Error** errp)
         TPM_CRB_ADDR_BASE, &s->mmio);
 
     if (s->virtpm) {
-        vdev = VIRTIO_DEVICE(s->virtpm);
-
+        s->virtpm = &s->virtpmpci->vdev;
         // TODO: 下面的东西全都放在 virtio-tpm 的实现中。（一个 queue 的实现中）
         // TODO: VIRTIO TPM 创建！驱动侧：在 CRB 识别中增加 Virtio 相关数据结构的初始化即可！
-        // 寻找对应的结构体，而不是直接进行引用。！
-
-        virtio_init(vdev, VIRTIO_ID_TPM, 0); // 需要再来一个 virtio-tpm-pci 设备。
         // 驱动侧：需要通过 CRB 找到 Virtio 设备对应的 vqueue。直接将 CMD 按照格式写入到 vqueue 中。
     }
     else {
