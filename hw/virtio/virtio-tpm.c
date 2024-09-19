@@ -85,6 +85,8 @@ static Property virtio_tpm_properties[] = {
      * and you can pass it through via virtio-rng, then hats off to you.  Until
      * then, this is unlimited for all practical purposes.
      */
+    DEFINE_PROP_LINK("tpm", VirtIOTPM, conf.tpm, TYPE_RNG_BACKEND, RngBackend *),
+
     DEFINE_PROP_END_OF_LIST(),
 };
 

@@ -71,6 +71,8 @@ DECLARE_INSTANCE_CHECKER(CRBState, CRB,
 
 #define CRB_INTF_TYPE_CRB_ACTIVE 0b1
 #define CRB_INTF_VERSION_CRB 0b1
+// 
+
 #define CRB_INTF_CAP_LOCALITY_0_ONLY 0b0
 #define CRB_INTF_CAP_IDLE_FAST 0b0
 #define CRB_INTF_CAP_XFER_SIZE_64 0b11
@@ -268,6 +270,7 @@ static void tpm_crb_reset(void *dev)
                      tpmRegValidSts, 1);
     ARRAY_FIELD_DP32(s->regs, CRB_CTRL_STS,
                      tpmIdle, 1);
+    // OVMF 凭借 InterfaceId/InterfaceCapability 判断接口
     ARRAY_FIELD_DP32(s->regs, CRB_INTF_ID,
                      InterfaceType, CRB_INTF_TYPE_CRB_ACTIVE);
     ARRAY_FIELD_DP32(s->regs, CRB_INTF_ID,
@@ -320,7 +323,7 @@ static void tpm_crb_realize(DeviceState* dev, Error** errp)
     memory_region_add_subregion(get_system_memory(),
         TPM_CRB_ADDR_BASE, &s->mmio);
 
-    if (s->virtpm) {
+    if (s->virtpm) { // 
         s->virtpm = &s->virtpmpci->vdev;
         // TODO: 下面的东西全都放在 virtio-tpm 的实现中。（一个 queue 的实现中）
         // TODO: VIRTIO TPM 创建！驱动侧：在 CRB 识别中增加 Virtio 相关数据结构的初始化即可！

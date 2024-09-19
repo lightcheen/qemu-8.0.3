@@ -27,6 +27,7 @@ struct VirtIOTpmPCI {
 };
 
 static Property virtio_tpm_properties[] = {
+    
     DEFINE_PROP_END_OF_LIST(),
 };
 

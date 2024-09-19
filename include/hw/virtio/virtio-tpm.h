@@ -18,7 +18,9 @@ OBJECT_DECLARE_SIMPLE_TYPE(VirtIOTPM, VIRTIO_TPM)
         OBJECT_GET_PARENT_CLASS(obj, TYPE_VIRTIO_TPM)
 
 // virtio_tpm_properties 没有额外的属性，因此不需要。不过之后可以添加属性用于指明其依靠 TIS/CRB
-struct VirtIOTPMConf { };
+struct VirtIOTPMConf {
+    
+};
 
 struct VirtIOTPM {
     VirtIODevice parent_obj;
@@ -26,7 +28,7 @@ struct VirtIOTPM {
     /* Only one vq - guest puts buffer(s) on it when it needs entropy */
     VirtQueue *vq;
 
-    // VirtIOTPMConf conf;
+    VirtIOTPMConf conf;
 };
 
 #endif

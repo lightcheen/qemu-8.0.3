@@ -34,7 +34,7 @@
 #include "qemu/config-file.h"
 #include "qemu/cutils.h"
 #include "qemu/option.h"
-#include "standard-headers/linux/virtio_ids.h"
+#include "standard-headers/linux/.h"
 #include "exec/exec-all.h"
 
 #define KERN_IMAGE_START                0x010000UL
