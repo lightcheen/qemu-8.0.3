@@ -1,5 +1,5 @@
-#ifndef _LINUX__H
-#define _LINUX__H
+#ifndef _LINUX_VIRTIO_IDS_H
+#define _LINUX_VIRTIO_IDS_H
 /*
  * Virtio IDs
  *
@@ -82,4 +82,4 @@
 #define VIRTIO_TRANS_ID_RNG		0x1005 /* transitional virtio rng */
 #define VIRTIO_TRANS_ID_9P		0x1009 /* transitional virtio 9p console */
 
-#endif /* _LINUX__H */
+#endif /* _LINUX_VIRTIO_IDS_H */
