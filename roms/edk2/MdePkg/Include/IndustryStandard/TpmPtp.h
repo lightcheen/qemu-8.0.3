@@ -28,6 +28,7 @@ typedef struct {
   ///
   UINT8     Access;                                     // 0
   UINT8     Reserved1[7];                               // 1
+  // 选择第二个为 Virtio enable or not。
   ///
   /// Controls interrupts.
   ///
@@ -349,6 +350,7 @@ typedef union {
 ///
 #define PTP_INTERFACE_IDENTIFIER_INTERFACE_TYPE_FIFO  0x0
 #define PTP_INTERFACE_IDENTIFIER_INTERFACE_TYPE_CRB   0x1
+// #define PTP_INTERFACE_IDENTIFIER_INTERFACE_TYPE_CRB   0x1
 #define PTP_INTERFACE_IDENTIFIER_INTERFACE_TYPE_TIS   0xF
 
 ///
