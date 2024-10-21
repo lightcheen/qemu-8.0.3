@@ -117,7 +117,6 @@ static uint64_t tpm_crb_mmio_read(void *opaque, hwaddr addr,
         val |= !tpm_backend_get_tpm_established_flag(s->tpmbe);
         break;
     case A_CRB_LOC_VIRTIO_ENABLED:
-        printf("??????????r\n");
         val = s->regs[R_CRB_LOC_VIRTIO_ENABLED];
     }
 
@@ -145,7 +144,6 @@ static void tpm_crb_mmio_write(void *opaque, hwaddr addr,
     switch (addr) {
 
     case A_CRB_LOC_VIRTIO_ENABLED:
-        printf("??????????w\n");
         s->regs[R_CRB_LOC_VIRTIO_ENABLED] = val;
         break;
     case A_CRB_CTRL_REQ:

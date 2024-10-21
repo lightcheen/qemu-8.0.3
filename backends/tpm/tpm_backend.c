@@ -65,11 +65,12 @@ enum TpmType tpm_backend_get_type(TPMBackend *s)
 
 int tpm_backend_init(TPMBackend *s, TPMIf *tpmif, Error **errp)
 {
-    if (s->tpmif) {
-        error_setg(errp, "TPM backend '%s' is already initialized", s->id);
-        return -1;
-    }
-
+    // if (s->tpmif) {
+    //     error_setg(errp, "TPM backend '%s' is already initialized", s->id);
+    //     return -1;
+    // }
+    // TODO: 这里是为了从 virtio tpm 结构体直接获得后端。
+    // 之后脱离 CRB 实现后可以再看。
     s->tpmif = tpmif;
     object_ref(OBJECT(tpmif));
 

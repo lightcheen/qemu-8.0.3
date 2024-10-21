@@ -13,25 +13,95 @@
 #include "hw/virtio/virtio-tpm.h"
 #include "hw/tpm/tpm_prop.h"
 #include "sysemu/tpm.h"
+#include "sysemu/tpm_util.h"
 #include "sysemu/runstate.h"
 #include "qom/object_interfaces.h"
 #include "trace.h"
+#include "chardev/char-fe.h"
+#include "io/channel-socket.h"
+#include "backends/tpm/tpm_ioctl.h"
+#include "backends/tpm/tpm_int.h"
 
-static void tpm_virtio_handle(VirtIODevice *vdev, VirtQueue *vq) // TODO: 应该指明处理方向
+#define TYPE_TPM_EMULATOR "tpm-emulator"
+OBJECT_DECLARE_SIMPLE_TYPE(TPMEmulator, TPM_EMULATOR)
+
+typedef struct TPMBlobBuffers {
+    uint32_t permanent_flags;
+    TPMSizedBuffer permanent;
+
+    uint32_t volatil_flags;
+    TPMSizedBuffer volatil;
+
+    uint32_t savestate_flags;
+    TPMSizedBuffer savestate;
+} TPMBlobBuffers;
+
+
+struct TPMEmulator {
+    TPMBackend parent;
+
+    TPMEmulatorOptions *options;
+    CharBackend ctrl_chr;
+    QIOChannel *data_ioc;
+    TPMVersion tpm_version;
+    ptm_cap caps; /* capabilities of the TPM */
+    uint8_t cur_locty_number; /* last set locality */
+    Error *migration_blocker;
+
+    QemuMutex mutex;
+
+    unsigned int established_flag:1;
+    unsigned int established_flag_cached:1;
+
+    TPMBlobBuffers state_blobs;
+
+    bool relock_storage;
+    VMChangeStateEntry *vmstate;
+};
+
+
+static void tpm_virtio_handle(VirtIODevice* vdev, VirtQueue* vq)
 {
-    // VirtIOTPM* vtpm = VIRTIO_TPM(vdev);
-    // CRBState* s = CRB(dev); // 是否需要 CRB 参与？
+    ssize_t ret;
+    uint8_t *in;
+    uint32_t in_len;
+    uint8_t *out;
+    uint32_t out_len;
+    VirtQueueElement* elem;
+    Error **errp = NULL;
 
-    printf("[tpm_virtio_handle]\n");
-    ssize_t len;
-    VirtQueueElement *elem;
-    // TPMBackendCmd cmd;
-    uint8_t *buf = NULL;
-
+    VirtIOTPM* vtpm = VIRTIO_TPM(vdev);
+    TPMBackend *tpmbe = vtpm->tpmbe;
+    TPMEmulator* tpm_emu = TPM_EMULATOR(tpmbe);
+    
     elem = virtqueue_pop(vq, sizeof(VirtQueueElement));
-    len = iov_from_buf(elem->in_sg, elem->in_num, 0,
-                        buf, 6);
-    len = len - 1;
+
+    in = (uint8_t*) elem->out_sg[0].iov_base;
+    in_len = elem->out_sg[0].iov_len;
+
+    ret = qio_channel_write_all(tpm_emu->data_ioc, (char *)in, in_len, errp);
+    if (ret != 0) {
+        printf("qio_channel_write_all failed\n");
+    }
+
+    out = elem->in_sg[0].iov_base;
+    ret = qio_channel_read_all(tpm_emu->data_ioc, (char*)out,
+              sizeof(struct tpm_resp_hdr), errp);
+    if (ret != 0) {
+        printf("qio_channel_read_all failed\n");
+    }
+    printf("[tpm_virtio_handle] %02x %02x (%02x %02x %02x %02x) \n", out[0], out[1], out[8], out[9], out[10], out[11]);
+
+    ret = qio_channel_read_all(tpm_emu->data_ioc,
+              (char *)out + sizeof(struct tpm_resp_hdr),
+              tpm_cmd_get_size(out) - sizeof(struct tpm_resp_hdr), errp);
+    if (ret != 0) {
+        printf("qio_channel_read_all failed\n");
+    }
+
+    out_len = tpm_cmd_get_size(out) + sizeof(struct tpm_resp_hdr);
+    virtqueue_push(vq, elem, out_len);
+    virtio_notify(vdev, vq);
 
 }
 
@@ -57,8 +127,8 @@ static void virtio_tpm_device_realize(DeviceState *dev, Error **errp)
     VirtIOTPM *vtpm = VIRTIO_TPM(dev);
 
     virtio_init(vdev, VIRTIO_ID_TPM, 0);
+    vtpm->data_vq = virtio_add_queue(vdev, 8, tpm_virtio_handle);  // 设备侧：将 CMD 提取出来使用 tpm_passthrough_unix_tx_bufs
 
-    vtpm->vq = virtio_add_queue(vdev, 8, tpm_virtio_handle); // 设备侧：将 CMD 提取出来使用 tpm_passthrough_unix_tx_bufs
 }
 
 static void virtio_tpm_device_unrealize(DeviceState *dev)
@@ -67,6 +137,7 @@ static void virtio_tpm_device_unrealize(DeviceState *dev)
     // VirtIOTPM *vtpm = VIRTIO_TPM(dev);
 
     virtio_del_queue(vdev, 0);
+
     virtio_cleanup(vdev);
 }
 
@@ -86,8 +157,7 @@ static Property virtio_tpm_properties[] = {
      * and you can pass it through via virtio-rng, then hats off to you.  Until
      * then, this is unlimited for all practical purposes.
      */
-    // DEFINE_PROP_LINK("tpm", VirtIOTPM, conf.tpm, TYPE_RNG_BACKEND, TpmBackend *),
-
+    DEFINE_PROP_TPMBE("tpmdev", VirtIOTPM, tpmbe),
     DEFINE_PROP_END_OF_LIST(),
 };
 
