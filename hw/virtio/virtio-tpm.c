@@ -67,25 +67,73 @@ static void tpm_virtio_handle(VirtIODevice* vdev, VirtQueue* vq)
     uint32_t in_len;
     uint8_t *out;
     uint32_t out_len;
-    VirtQueueElement* elem;
+    VirtQueueElement *elem;
     Error **errp = NULL;
+    int i=0;
 
     VirtIOTPM* vtpm = VIRTIO_TPM(vdev);
     TPMBackend *tpmbe = vtpm->tpmbe;
     TPMEmulator* tpm_emu = TPM_EMULATOR(tpmbe);
     
     elem = virtqueue_pop(vq, sizeof(VirtQueueElement));
+    elem->out_sg->iov_base = (uint8_t * ) malloc (2048 * sizeof(uint8_t));
+    if(!elem){
+        printf("elem is NULL\n");
+    }
+    printf("*************begin\n");
+    printf("elem->index : %d\n",elem->index);
+    printf("elem->len : %d\n",elem->len);
+    printf("elem->ndescs : %d\n",elem->ndescs);
+    printf("elem->out_num : %d\n",elem->out_num);
+    printf("elem->in_num : %d\n",elem->in_num);
+    printf("elem->in_addr : %ld\n",elem->in_addr[0]);
+    printf("elem->out_addr : %ld\n",elem->out_addr[0]);
 
-    in = (uint8_t*) elem->out_sg[0].iov_base;
-    in_len = elem->out_sg[0].iov_len;
+    in = (uint8_t*) elem->in_sg[0].iov_base;
+    printf("elem->in_sg->iov_len : %ld\n",elem->in_sg[0].iov_len);
+    printf("elem->in_sg->iov_base : \n");
+    for(i=0 ;(i< (elem->in_sg[0].iov_len))&&(i<128);i++){
+        if(i%16 == 0){
+            printf("\n");
+        }
+        printf("%02x ",in[i]);
+    }
+    printf("\n");
+
+    out = (uint8_t*)elem->out_sg->iov_base;
+    printf("elem->out_sg->iov_len : %ld\n",elem->out_sg[0].iov_len);
+    printf("elem->out_sg->iov_base : \n");
+    for(i=0 ;(i< (elem->out_sg[0].iov_len))&&(i<128);i++){
+        if(i%16 == 0){
+            printf("\n");
+        }
+        printf("%02x ",out[i]);
+    }
+    printf("\n******************begin\n");
+
+    in_len = elem->in_sg->iov_len;
+    if(!elem->in_sg->iov_base){
+        printf("elem->out_sg[0].iov_base is NULL\n");
+    }
+    if(!in){
+        printf("in is null\n");
+    }
+    printf("in_len is %d\n",in_len);
+
+    if(!tpm_emu->data_ioc){
+        printf("tpm_emu->data_ioc is null\n");
+    }
+    if(!elem->out_sg->iov_base){
+        printf("elem->out_sg->iov_baseis null\n");
+    }
 
     ret = qio_channel_write_all(tpm_emu->data_ioc, (char *)in, in_len, errp);
     if (ret != 0) {
         printf("qio_channel_write_all failed\n");
     }
 
-    out = elem->in_sg[0].iov_base;
-    ret = qio_channel_read_all(tpm_emu->data_ioc, (char*)out,
+    //out = (uint8_t*)elem->out_sg->iov_base;
+    ret = qio_channel_read_all(tpm_emu->data_ioc, (char *)out,
               sizeof(struct tpm_resp_hdr), errp);
     if (ret != 0) {
         printf("qio_channel_read_all failed\n");
@@ -99,9 +147,41 @@ static void tpm_virtio_handle(VirtIODevice* vdev, VirtQueue* vq)
         printf("qio_channel_read_all failed\n");
     }
 
-    out_len = tpm_cmd_get_size(out) + sizeof(struct tpm_resp_hdr);
+    out_len = tpm_cmd_get_size(out) + sizeof(struct tpm_resp_hdr) - 10;
+    //elem->out_sg[0].iov_len = out_len;
+    //elem->out_num = 1;
+    printf("out_len : %d\n",out_len);
+
+    printf("*************end\n");
+    printf("elem->index : %d\n",elem->index);
+    printf("elem->len : %d\n",elem->len);
+    printf("elem->ndescs : %d\n",elem->ndescs);
+    printf("elem->out_num : %d\n",elem->out_num);
+    printf("elem->in_num : %d\n",elem->in_num);
+    printf("elem->in_addr : %ld\n",elem->in_addr[0]);
+    printf("elem->out_addr : %ld\n",elem->out_addr[0]);
+    printf("elem->in_sg->iov_len : %ld\n",elem->in_sg[0].iov_len);
+    printf("elem->in_sg->iov_base : \n");
+    for(i=0 ;(i< (elem->in_sg[0].iov_len))&&(i<128);i++){
+        if(i%16 == 0){
+            printf("\n");
+        }
+        printf("%02x ",in[i]);
+    }
+    printf("\n");
+    printf("elem->out_sg->iov_len : %ld\n",elem->out_sg[0].iov_len);
+    printf("elem->out_sg->iov_base : \n");
+    for(i=0 ;(i< out_len)&&(i<128);i++){
+        if(i%16 == 0){
+            printf("\n");
+        }
+        printf("%02x ",out[i]);
+    }
+    printf("\n******************end\n");
     virtqueue_push(vq, elem, out_len);
     virtio_notify(vdev, vq);
+
+    g_free(elem);
 
 }
 
